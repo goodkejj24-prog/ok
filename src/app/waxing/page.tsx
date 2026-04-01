@@ -191,16 +191,19 @@ export default function DashboardPage() {
                     {s.customer.name.charAt(0)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs font-semibold">{s.customer.name}</span>
                       {s.daysUntilNext !== undefined && s.daysUntilNext <= 0 && (
-                        <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-600">재예약 필요</span>
+                        <span className="animate-pulse rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-600">🔴 재예약 문자 보내세요!</span>
                       )}
                       {s.daysUntilNext !== undefined && s.daysUntilNext > 0 && s.daysUntilNext <= 7 && (
-                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-600">{s.daysUntilNext}일 후</span>
+                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-600">⏰ {s.daysUntilNext}일 후 재예약 안내</span>
+                      )}
+                      {s.daysUntilNext !== undefined && s.daysUntilNext > 7 && (
+                        <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] text-gray-500">{s.daysUntilNext}일 남음</span>
                       )}
                     </div>
-                    <div className="flex gap-2 mt-0.5 text-[10px] text-muted-foreground">
+                    <div className="flex gap-2 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
                       {s.reservation && (
                         <span className="text-blue-600">📅 예약 {formatDate(s.reservation.date)}</span>
                       )}
@@ -208,8 +211,8 @@ export default function DashboardPage() {
                         <span className="text-emerald-600">✅ 시술 {formatDate(s.lastCompleted.completedAt.split("T")[0])}</span>
                       )}
                       {s.nextVisitDate && (
-                        <span className={s.daysUntilNext !== undefined && s.daysUntilNext <= 0 ? "text-red-600 font-semibold" : "text-amber-600"}>
-                          🔔 {formatDate(s.nextVisitDate)}
+                        <span className={s.daysUntilNext !== undefined && s.daysUntilNext <= 0 ? "text-red-600 font-bold" : "text-amber-600"}>
+                          🔔 5주뒤 {formatDate(s.nextVisitDate)}
                         </span>
                       )}
                     </div>

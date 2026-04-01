@@ -71,9 +71,10 @@ export default function ReservationsPage() {
   };
 
   const handleComplete = async (r: Reservation) => {
+    // 예약일을 시술일로 사용 (예약일에 시술한 것으로 체크)
     await db.reservations.update(r.id!, {
       status: "completed",
-      completedAt: new Date().toISOString(),
+      completedAt: r.date + "T00:00:00",
       msgAftercare: "pending",
       msgReminder: "pending",
     });
