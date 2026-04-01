@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { db } from "@/lib/waxing/db";
 import type { Customer, Reservation, MessageTarget, MessageType } from "@/lib/waxing/types";
 import { bookingMessage, dayBeforeMessage, aftercareMessage, reminderMessage } from "@/lib/waxing/message-templates";
@@ -38,6 +39,7 @@ export default function DashboardPage() {
   const [selectedTarget, setSelectedTarget] = useState<MessageTarget | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSchedule, setShowSchedule] = useState(true);
+  const router = useRouter();
 
   const loadTargets = useCallback(async () => {
     const customers = await db.customers.toArray();
@@ -217,6 +219,12 @@ export default function DashboardPage() {
                       )}
                     </div>
                   </div>
+                  <button
+                    onClick={() => router.push(`/waxing/messages?customerId=${s.customer.id}`)}
+                    className="shrink-0 rounded-lg bg-pink-600 px-2.5 py-1.5 text-[10px] font-semibold text-white active:bg-pink-700"
+                  >
+                    💬 문자
+                  </button>
                 </div>
               ))
             )}

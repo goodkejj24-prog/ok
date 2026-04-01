@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { db } from "@/lib/waxing/db";
 import type { Customer, Reservation } from "@/lib/waxing/types";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,8 @@ import { toDateString } from "@/lib/waxing/date-utils";
 type Filter = "all" | "reserved" | "completed";
 
 export default function ReservationsPage() {
-  const [reservations, setReservations] = useState<(Reservation & { customerName: string })[]>([]);
+  const router = useRouter();
+  const [reservations, setReservations] = useState<(Reservation & { customerName: string; customerId: number })[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const [showForm, setShowForm] = useState(false);
@@ -173,13 +175,31 @@ export default function ReservationsPage() {
                       className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
                       onClick={() => handleComplete(r)}
                     >
-                      시술 완료
+                      ✅ 시술 완료
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="flex-1 bg-pink-600 hover:bg-pink-700 text-white text-xs"
+                      onClick={() => router.push(`/waxing/messages?customerId=${r.customerId}`)}
+                    >
+                      💬 문자
                     </Button>
                     <Button size="sm" variant="outline" className="text-xs" onClick={() => handleNoShow(r)}>
                       노쇼
                     </Button>
                     <Button size="sm" variant="outline" className="text-xs" onClick={() => handleCancel(r)}>
                       취소
+                    </Button>
+                  </div>
+                )}
+                {r.status === "completed" && (
+                  <div className="flex gap-2 mt-2">
+                    <Button
+                      size="sm"
+                      className="flex-1 bg-pink-600 hover:bg-pink-700 text-white text-xs"
+                      onClick={() => router.push(`/waxing/messages?customerId=${r.customerId}`)}
+                    >
+                      💬 문자 보내기
                     </Button>
                   </div>
                 )}
