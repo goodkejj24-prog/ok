@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { db } from "@/lib/waxing/db";
 import type { Customer, Reservation } from "@/lib/waxing/types";
 import { Button } from "@/components/ui/button";
 
 export default function CustomersPage() {
+  const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [reservationCounts, setReservationCounts] = useState<Map<number, number>>(new Map());
   const [search, setSearch] = useState("");
@@ -61,6 +63,10 @@ export default function CustomersPage() {
     load();
   };
 
+  const handleSendMessage = (c: Customer) => {
+    router.push(`/waxing/messages?customerId=${c.id}`);
+  };
+
   const filtered = customers.filter(
     (c) => c.name.includes(search) || c.phone.includes(search)
   );
@@ -101,27 +107,39 @@ export default function CustomersPage() {
           </div>
         ) : (
           filtered.map((c) => (
-            <div key={c.id} className="flex items-center gap-3 rounded-xl border bg-card p-3.5 shadow-sm">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-100 text-sm font-bold text-pink-600">
-                {c.name.charAt(0)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold">{c.name}</span>
-                  <span className="text-[11px] text-muted-foreground">
-                    시술 {reservationCounts.get(c.id!) || 0}회
-                  </span>
+            <div key={c.id} className="rounded-xl border bg-card p-3.5 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-100 text-sm font-bold text-pink-600">
+                  {c.name.charAt(0)}
                 </div>
-                <div className="text-xs text-muted-foreground">{c.phone}</div>
-                {c.memo && <div className="mt-0.5 text-xs text-muted-foreground/70 truncate">{c.memo}</div>}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold">{c.name}</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      시술 {reservationCounts.get(c.id!) || 0}회
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">{c.phone}</div>
+                  {c.memo && <div className="mt-0.5 text-xs text-muted-foreground/70 truncate">{c.memo}</div>}
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <button onClick={() => handleEdit(c)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted">
+                    <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg>
+                  </button>
+                  <button onClick={() => handleDelete(c)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-500">
+                    <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                  </button>
+                </div>
               </div>
-              <div className="flex shrink-0 gap-1">
-                <button onClick={() => handleEdit(c)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted">
-                  <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg>
-                </button>
-                <button onClick={() => handleDelete(c)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-500">
-                  <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
-                </button>
+              {/* 문자 보내기 버튼 */}
+              <div className="mt-2 flex gap-2">
+                <Button
+                  size="sm"
+                  className="flex-1 bg-pink-600 hover:bg-pink-700 text-white text-xs"
+                  onClick={() => handleSendMessage(c)}
+                >
+                  💬 문자 보내기
+                </Button>
               </div>
             </div>
           ))
