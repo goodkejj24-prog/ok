@@ -1,0 +1,21 @@
+{
+  "name": "EJ Waxing - 고객관리",
+  "short_name": "EJ Waxing",
+  "description": "왁싱샵 고객관리 시스템",
+  "start_url": "/waxing",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#db2777",
+  "icons": [
+    {
+      "src": "/waxing-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/waxing-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
