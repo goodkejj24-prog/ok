@@ -4,83 +4,111 @@ import { useEffect, useState, useCallback } from "react";
 import { db } from "@/lib/waxing/db";
 import type { Customer, Reservation, MessageTarget, MessageType } from "@/lib/waxing/types";
 import { bookingMessage, dayBeforeMessage, aftercareMessage, reminderMessage } from "@/lib/waxing/message-templates";
-import { isReminderDue, isTomorrow, weeksAgo } from "@/lib/waxing/date-utils";
+import { isReminderDue, isTomorrow, weeksAgo, daysSince } from "@/lib/waxing/date-utils";
 import MessagePreview from "@/components/waxing/MessagePreview";
 
 type Tab = "all" | "booking" | "dayBefore" | "aftercare" | "reminder";
 
+interface CustomerSchedule {
+  customer: Customer;
+  reservation?: Reservation;       // 가장 최근 예약
+  lastCompleted?: Reservation;     // 가장 최근 시술완료
+  nextVisitDate?: string;          // 5주 뒤 날짜
+  daysUntilNext?: number;          // 5주 뒤까지 남은 일수
+}
+
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
+  return `${month}/${day}(${weekdays[d.getDay()]})`;
+}
+
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
 export default function DashboardPage() {
   const [targets, setTargets] = useState<MessageTarget[]>([]);
+  const [schedules, setSchedules] = useState<CustomerSchedule[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("all");
   const [selectedTarget, setSelectedTarget] = useState<MessageTarget | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showSchedule, setShowSchedule] = useState(true);
 
   const loadTargets = useCallback(async () => {
     const customers = await db.customers.toArray();
     const customerMap = new Map(customers.map((c) => [c.id!, c]));
     const reservations = await db.reservations.toArray();
 
+    // 문자 대상 목록
     const result: MessageTarget[] = [];
 
     for (const r of reservations) {
       const customer = customerMap.get(r.customerId);
       if (!customer) continue;
 
-      // 1) 예약확정 안내
       if (r.status === "reserved" && r.msgBooking === "pending") {
-        result.push({
-          type: "booking",
-          customer,
-          reservation: r,
-          message: bookingMessage(customer, r),
-        });
+        result.push({ type: "booking", customer, reservation: r, message: bookingMessage(customer, r) });
       }
-
-      // 2) 예약 전날 안내
       if (r.status === "reserved" && r.msgDayBefore === "pending" && isTomorrow(r.date)) {
-        result.push({
-          type: "dayBefore",
-          customer,
-          reservation: r,
-          message: dayBeforeMessage(customer, r),
-        });
+        result.push({ type: "dayBefore", customer, reservation: r, message: dayBeforeMessage(customer, r) });
       }
-
-      // 3) 시술 후 안내
       if (r.status === "completed" && r.msgAftercare === "pending") {
-        result.push({
-          type: "aftercare",
-          customer,
-          reservation: r,
-          message: aftercareMessage(customer),
-        });
+        result.push({ type: "aftercare", customer, reservation: r, message: aftercareMessage(customer) });
       }
-
-      // 4) 5주 뒤 재예약 리마인더
-      if (
-        r.status === "completed" &&
-        r.completedAt &&
-        r.msgReminder === "pending" &&
-        isReminderDue(r.completedAt)
-      ) {
-        const hasNewReservation = reservations.some(
-          (other) =>
-            other.customerId === r.customerId &&
-            other.id !== r.id &&
-            other.status === "reserved"
-        );
-        if (!hasNewReservation) {
-          result.push({
-            type: "reminder",
-            customer,
-            reservation: r,
-            message: reminderMessage(customer),
-          });
+      if (r.status === "completed" && r.completedAt && r.msgReminder === "pending" && isReminderDue(r.completedAt)) {
+        const hasNew = reservations.some((o) => o.customerId === r.customerId && o.id !== r.id && o.status === "reserved");
+        if (!hasNew) {
+          result.push({ type: "reminder", customer, reservation: r, message: reminderMessage(customer) });
         }
       }
     }
 
+    // 고객별 스케줄
+    const scheduleList: CustomerSchedule[] = [];
+    for (const customer of customers) {
+      const custReservations = reservations.filter((r) => r.customerId === customer.id);
+      const reserved = custReservations
+        .filter((r) => r.status === "reserved")
+        .sort((a, b) => a.date.localeCompare(b.date));
+      const completed = custReservations
+        .filter((r) => r.status === "completed" && r.completedAt)
+        .sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || ""));
+
+      const latestReservation = reserved[0];
+      const lastCompleted = completed[0];
+
+      let nextVisitDate: string | undefined;
+      let daysUntilNext: number | undefined;
+
+      if (lastCompleted?.completedAt) {
+        nextVisitDate = addDays(lastCompleted.completedAt.split("T")[0], 35);
+        daysUntilNext = -daysSince(nextVisitDate);
+      }
+
+      scheduleList.push({
+        customer,
+        reservation: latestReservation,
+        lastCompleted,
+        nextVisitDate,
+        daysUntilNext,
+      });
+    }
+
+    // 5주 뒤 날짜 가까운 순 정렬
+    scheduleList.sort((a, b) => {
+      if (a.daysUntilNext === undefined && b.daysUntilNext === undefined) return 0;
+      if (a.daysUntilNext === undefined) return 1;
+      if (b.daysUntilNext === undefined) return -1;
+      return a.daysUntilNext - b.daysUntilNext;
+    });
+
     setTargets(result);
+    setSchedules(scheduleList);
     setLoading(false);
   }, []);
 
@@ -135,6 +163,62 @@ export default function DashboardPage() {
         <SummaryCard count={counts.dayBefore} label="전날안내" color="purple" />
         <SummaryCard count={counts.aftercare} label="시술후" color="emerald" />
         <SummaryCard count={counts.reminder} label="재예약" color="amber" />
+      </div>
+
+      {/* 고객 관리 스케줄 */}
+      <div className="px-4 pb-2">
+        <button
+          onClick={() => setShowSchedule(!showSchedule)}
+          className="flex w-full items-center justify-between rounded-lg bg-pink-50 px-3 py-2"
+        >
+          <span className="text-xs font-bold text-pink-700">📋 고객별 관리 현황</span>
+          <svg
+            className={`size-4 text-pink-400 transition-transform ${showSchedule ? "rotate-180" : ""}`}
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+
+        {showSchedule && (
+          <div className="mt-2 flex flex-col gap-1.5">
+            {schedules.length === 0 ? (
+              <div className="py-4 text-center text-xs text-muted-foreground">등록된 고객이 없습니다</div>
+            ) : (
+              schedules.map((s) => (
+                <div key={s.customer.id} className="flex items-center gap-2.5 rounded-lg border bg-card px-3 py-2.5 shadow-sm">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pink-100 text-xs font-bold text-pink-600">
+                    {s.customer.name.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold">{s.customer.name}</span>
+                      {s.daysUntilNext !== undefined && s.daysUntilNext <= 0 && (
+                        <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-600">재예약 필요</span>
+                      )}
+                      {s.daysUntilNext !== undefined && s.daysUntilNext > 0 && s.daysUntilNext <= 7 && (
+                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-600">{s.daysUntilNext}일 후</span>
+                      )}
+                    </div>
+                    <div className="flex gap-2 mt-0.5 text-[10px] text-muted-foreground">
+                      {s.reservation && (
+                        <span className="text-blue-600">📅 예약 {formatDate(s.reservation.date)}</span>
+                      )}
+                      {s.lastCompleted?.completedAt && (
+                        <span className="text-emerald-600">✅ 시술 {formatDate(s.lastCompleted.completedAt.split("T")[0])}</span>
+                      )}
+                      {s.nextVisitDate && (
+                        <span className={s.daysUntilNext !== undefined && s.daysUntilNext <= 0 ? "text-red-600 font-semibold" : "text-amber-600"}>
+                          🔔 {formatDate(s.nextVisitDate)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       {/* Tab Filter */}
